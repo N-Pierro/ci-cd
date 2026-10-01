@@ -11,11 +11,9 @@ pipeline {
                 checkout scm
             }
         }
-        stage('Use Secret') {
+        stage('Security Scan') {
             steps {
-                withCredentials([string(credentialsId: 'test-api-key', variable: 'API_KEY')]) {
-                    sh 'echo "Using key (masked in log): $API_KEY"'
-                }
+                sh 'docker run --rm -v $(pwd):/path zricethezav/gitleaks:latest detect --source="/path" --exit-code 1'          
             }
         }
         stage('Build') {
@@ -49,15 +47,8 @@ pipeline {
     }
 
     post {
-        success {
-            echo 'Pipeline succeeded'
-        }
-        failure {
-            echo 'Pipeline failed — would alert here'
-        }
         always {
-            echo 'Cleaning workspace'
-            cleanWs()
+            archiveArtifacts artifacts: 'gitleaks-report.json', allowEmptyArchive: true 
         }
     }
 }
