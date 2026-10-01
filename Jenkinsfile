@@ -11,6 +11,13 @@ pipeline {
                 checkout scm
             }
         }
+        stage('Use Secret') {
+            steps {
+                withCredentials([string(credentialsId: 'test-api-key', variable: 'API_KEY')]) {
+                    sh 'echo "Using key (masked in log): $API_KEY"'
+                }
+            }
+        }
         stage('Build') {
             steps {
                 sh 'echo "Building in $APP_ENV..."'
