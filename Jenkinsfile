@@ -1,54 +1,53 @@
 pipeline {
     agent { label 'docker-agent' }
 
-    environment {
-        APP_ENV = 'lab'
-    }
-
     stages {
         stage('Checkout') {
-            steps {
-                checkout scm
-            }
+            steps { checkout scm }
         }
-        stage('Security Scan') {
-            steps {
-                sh 'docker run --rm -v $(pwd):/path zricethezav/gitleaks:latest detect --source="/path" --exit-code 1'          
-            }
-        }
-        stage('Build') {
-            steps {
-                sh 'echo "Building in $APP_ENV..."'
-            }
-        }
-        stage('Test') {
-            steps {
-                sh 'echo "Running tests..."'
-            }
-        }
-        stage('Parallel Checks') {
+
+        stage('Security Scans') {
             parallel {
-                stage('Lint') {
-                    steps { sh 'echo linting...' }
+                stage('Secrets Scan') {
+                    steps {
+                        sh 'docker run --rm -v $(pwd):/path zricethezav/gitleaks:latest detect --source="/path" --exit-code 1'
+                    }
                 }
-                stage('Security Scan Placeholder') {
-                    steps { sh 'echo scanning...' }
+                stage('SAST') {
+                    steps {
+                        sh 'docker run --rm -v $(pwd):/src returntocorp/semgrep semgrep --config=auto /src --json || true'
+                    }
+                }
+                stage('Dependency Scan') {
+                    steps {
+                        sh 'docker run --rm -v $(pwd):/src python:3.9 bash -c "pip install pip-audit && pip-audit -r /src/requirements.txt" || true'
+                    }
                 }
             }
         }
-        stage('Deploy') {
-            when {
-                branch 'main'
-            }
+
+        stage('Build Image') {
+            steps { sh 'docker build -t devsecops-lab:${BUILD_NUMBER} .' }
+        }
+
+        stage('Container Scan') {
             steps {
-                sh 'echo deploying to lab environment'
+                sh 'docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image --severity HIGH,CRITICAL --exit-code 1 devsecops-lab:${BUILD_NUMBER}'
             }
+        }
+
+        stage('Deploy') {
+            when { branch 'main' }
+            steps { echo 'Would deploy here — gated on all scans passing' }
         }
     }
 
     post {
         always {
-            archiveArtifacts artifacts: 'gitleaks-report.json', allowEmptyArchive: true 
+            archiveArtifacts artifacts: '*-report.json', allowEmptyArchive: true
+        }
+        failure {
+            echo 'Security gate failed — build blocked from deploy'
         }
     }
 }
