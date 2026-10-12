@@ -1,0 +1,20 @@
+# Default owner
+*   @N-Pierro
+
+# CI/CD pipeline
+/Jenkinsfile @N-Pierro
+
+# Container build configuration
+/Dockerfile @N-Pierro
+
+# General infrastructure
+/infra/ @N-Pierro
+
+# Production infrastructure (additional scrutiny)
+/infra/prod/ @N-Pierro
+
+# Code quality configuration
+/sonar-project.properties @N-Pierro
+
+
+# Note in organisation these would be teams (@acme/platform-team, @acme/security)
